@@ -14,10 +14,12 @@ async def init_database():
     sql_script = schema_path.read_text(encoding="utf-8")
 
     print("Connecting to Neon PostgreSQL...")
-    async with engine.begin() as conn:
+    # Use raw asyncpg connection to execute multi-command SQL script
+    async with engine.connect() as conn:
         print("Executing schema setup...")
-        # Execute the schema DDL
-        await conn.execute(text(sql_script))
+        # conn.connection.dbapi_connection is the underlying asyncpg connection
+        raw_conn = await conn.get_raw_connection()
+        await raw_conn.driver_connection.execute(sql_script)
         print("Schema executed successfully!")
 
         # Verify created tables
@@ -32,12 +34,12 @@ async def init_database():
             )
         )
         tables = [row[0] for row in result.fetchall()]
-        print("\nCreated Tables in Database:")
+        print("\nVerified Tables in Neon Database:")
         for t in tables:
             print(f"  - {t}")
 
     await engine.dispose()
-    print("\nDatabase initialization complete and connection verified!")
+    print("\nDatabase initialization complete and verified!")
 
 
 if __name__ == "__main__":
