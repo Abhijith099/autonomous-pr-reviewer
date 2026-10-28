@@ -3,6 +3,11 @@ import logging
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks, Header
 from app.github.security import verify_github_signature
 
+from app.agents.orchestrator import ReviewOrchestrator
+
+orchestrator = ReviewOrchestrator()
+
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("pr_reviewer")
@@ -21,16 +26,27 @@ async def health_check():
 
 
 async def process_pull_request_background(payload: dict):
-    """Placeholder background worker to be connected to our orchestrator."""
-    pr_data = payload.get("pull_request", {})
-    repo_data = payload.get("repository", {})
-    
-    pr_number = pr_data.get("number")
-    repo_name = repo_data.get("full_name")
-    action = payload.get("action")
-    
-    logger.info(f"Background review triggered for {repo_name} PR #{pr_number} (action: {action})")
-    # In Step 4 & 5, we will invoke the real orchestrator and agents here!
+  """Background task that runs the full multi-agent review."""
+  pr_data = payload.get("pull_request", {})
+  repo_data = payload.get("repository", {})
+
+  pr_number = pr_data.get("number")
+  repo_name = repo_data.get("full_name")
+
+  if not repo_name or not pr_number:
+    logger.error("Missing repository full_name or pr_number in webhook payload")
+    return
+
+  logger.info(
+      f"Background worker starting review for {repo_name} PR #{pr_number}..."
+  )
+  # Execute the full multi-agent review pipeline!
+  state = await orchestrator.execute_review(repo_name, pr_number)
+  logger.info(
+      f"Finished review for {repo_name} PR #{pr_number} with status:"
+      f" {state.status}"
+  )
+
 
 
 @app.post("/webhook")
