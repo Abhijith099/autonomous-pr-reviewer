@@ -21,6 +21,23 @@ class Finding(BaseModel):
 # 3. Agent Structured Output container (used for Groq/LLM response parsing)
 class AgentFindingsResponse(BaseModel):
     findings: list[Finding] = Field(default_factory=list)
+
+# 3b. Planner Agent output — decides which files to review and what to focus on
+class PlannerDecision(BaseModel):
+    files_to_review: list[str] = Field(
+        default_factory=list,
+        description="Filenames that contain reviewable code logic",
+    )
+    files_to_skip: dict[str, str] = Field(
+        default_factory=dict,
+        description="Mapping of filename to skip reason",
+    )
+    focus_areas: list[str] = Field(
+        default_factory=list,
+        description="2-3 bullet points on what the review should prioritize",
+    )
+
+
 # 4. Context of the Pull Request extracted from GitHub API
 class PRContext(BaseModel):
     repo_full_name: str
