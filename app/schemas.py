@@ -28,8 +28,8 @@ class PlannerDecision(BaseModel):
         default_factory=list,
         description="Filenames that contain reviewable code logic",
     )
-    files_to_skip: dict[str, str] = Field(
-        default_factory=dict,
+    files_to_skip: list[str] = Field(
+        default_factory=list,
         description="Mapping of filename to skip reason",
     )
     focus_areas: list[str] = Field(

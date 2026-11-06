@@ -1,8 +1,8 @@
 import json #standard python module for parsing json string retured by the groq llm
 import logging #standard python module used to output infomative log messages and error logs during execution
 from groq import AsyncGroq
-from app.config import get_settings #import groq_api_ke and other env variables defined in .env 
-from app.schemas import PRContext, PlannerDecision    # prcontenxt: Contains the PR title,body, author and list of changesfiles & plannerDecision: the Pydantic model you just added to schemas.py
+from app.config import settings
+from app.schemas import PRContext, PlannerDecision
 
 logger = logging.getLogger(__name__)  #creats logger scoped to this modyle so we can trace when planning starts succeceds or encounters and issue.
 
@@ -30,8 +30,7 @@ Do not include markdown formatting or commentary outside the JSON object.
 
 
 class PlannerAgent:   #Declares the agent responsibel for PR planning and triage
-    def __init__(self, model: str = "qwen/qwen3.8-27b"): #initializes the agent we set the default model to 
-        settings = get_settings()#reads the api key
+    def __init__(self, model: str = "qwen/qwen3.8-27b"):
         self.client = AsyncGroq(api_key=settings.GROQ_API_KEY)
         self.model = model
 
@@ -47,8 +46,8 @@ class PlannerAgent:   #Declares the agent responsibel for PR planning and triage
         ]
 
         user_content = (
-            f"Pull Request Title: {pr_context.title}\n"
-            f"Pull Request Description: {pr_context.body or 'No description provided.'}\n\n"
+            f"Pull Request Title: {pr_context.pr_title}\n"
+            f"Pull Request Description: {pr_context.pr_description or 'No description provided.'}\n\n"
             f"Changed Files List:\n{json.dumps(files_summary, indent=2)}\n\n"
             "Triage these files into files_to_review and files_to_skip, and identify key focus_areas."
         )
