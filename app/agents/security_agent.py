@@ -22,6 +22,7 @@ Rules:
 - Do NOT hallucinate issues that are not evident in the diff.
 - Do NOT comment on formatting, variable naming, or general code style.
 - If no security risk exists in the diff, return an empty findings list: {"findings": []}.
+- Output ONLY raw JSON starting immediately with '{' and ending with '}'. Do NOT include introductory thoughts, analysis, reasoning, or markdown codeblocks outside the JSON.
 
 You MUST return a JSON object strictly matching this schema:
 {
@@ -79,6 +80,7 @@ class SecurityAgent:
 {formatted_diff}
 
 Identify concrete security issues and return structured findings matching the schema.
+Output ONLY the JSON object starting with '{' and ending with '}'. If no issues, return {{"findings": []}}.
 """
 
         try:
