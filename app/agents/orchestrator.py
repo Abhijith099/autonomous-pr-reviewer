@@ -5,7 +5,10 @@ from app.db.session import engine
 from app.github.client import GitHubClient
 from app.agents.security_agent import SecurityAgent
 from app.agents.planner_agent import PlannerAgent  # <-- NEW: Import PlannerAgent
-from app.schemas import ReviewState, Finding, PlannerDecision  # <-- NEW: Import PlannerDecision
+from app.schemas import ReviewState, Finding, PlannerDecision  # <-- Import PlannerDecision
+import asyncio
+from app.agents.quality_agent import QualityAgent
+
 
 logger = logging.getLogger("pr_reviewer.orchestrator")
 
@@ -17,6 +20,7 @@ class ReviewOrchestrator:
         self.github = GitHubClient()
         self.planner_agent = PlannerAgent()  # <--Instantiate the planner
         self.security_agent = SecurityAgent()
+        self.quality_agent = QualityAgent()  # <--Instantiate the quality agent
 
     def _build_markdown_comment(self, state: ReviewState) -> str:
         """Converts findings into a clean GitHub Markdown comment."""
@@ -192,9 +196,10 @@ Our automated security analysis reviewed **{len(pr.changed_files)}** changed fil
             # 1. Fetch PR Context from GitHub
             pr_context = await self.github.get_pr_context(repo_full_name, pr_number)
             state = ReviewState(pr=pr_context, status="reviewing")
+
             # 2. Run Planner Agent for Triage & Focus Areas
-            logger.info("Running Planner Agent to triage files...")  # emits a log so we can observe the workflow timeline in out terminla logs
-            planner_decision = await self.planner_agent.plan(pr_context) # calls the planenr asynchronous plan() method with the pR metadata
+            logger.info("Running Planner Agent to triage files...")
+            planner_decision = await self.planner_agent.plan(pr_context)
             logger.info(
                 f"Planner decision: {len(planner_decision.files_to_review)} to review, "
                 f"{len(planner_decision.files_to_skip)} to skip."
@@ -210,13 +215,19 @@ Our automated security analysis reviewed **{len(pr.changed_files)}** changed fil
             if not reviewable_files and pr_context.changed_files:
                 logger.warning("Planner filtered all files. Falling back to review all.")
                 reviewable_files = pr_context.changed_files
-            
-            #3 Run security agent on the triaged files only
-            
-            findings = await self.security_agent.review(reviewable_files)
-            state.findings = findings
 
-            # 3. Build Markdown comment
+            # 3. Run Security and Quality Agents in parallel on the triaged files
+            logger.info(f"Running Security and Quality Agents on {len(reviewable_files)} reviewable file(s)...")
+            security_findings, quality_findings = await asyncio.gather(
+                self.security_agent.review(reviewable_files),
+                self.quality_agent.review(reviewable_files),
+            )
+            state.findings = security_findings + quality_findings
+            logger.info(
+                f"Review complete. Findings: {len(security_findings)} Security, {len(quality_findings)} Quality."
+            )
+
+            # 4. Build Markdown comment
             markdown_comment = self._build_markdown_comment(state)
             state.final_comment = markdown_comment
 
